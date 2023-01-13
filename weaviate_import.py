@@ -1,7 +1,6 @@
 import glob
 import json
 import uuid
-from math import isnan
 
 import weaviate
 
@@ -80,7 +79,7 @@ client.schema.property.create("Sentence", add_prop)
 
 data = []
 
-for f in glob.glob("/home/joachim/hal_embeddings/*.json"):
+for f in glob.glob(f"{os.path.expanduser('~')}/hal_embeddings/*.json"):
     with open(f, ) as infile:
         data.append(json.load(infile))
 
