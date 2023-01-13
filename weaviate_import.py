@@ -82,6 +82,7 @@ data = []
 
 for f in glob.glob(f"{os.path.expanduser('~')}/hal_embeddings/*.json"):
     with open(f, ) as infile:
+        print(f"Loading {str(infile)}...")
         data.append(json.load(infile))
 
 # Configure a batch process
