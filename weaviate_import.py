@@ -1,5 +1,6 @@
 import glob
 import json
+import os
 import uuid
 
 import weaviate
