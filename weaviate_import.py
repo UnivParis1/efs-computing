@@ -121,15 +121,15 @@ def load_data():
     client.batch.flush()
 
 
+counter = 0
 for f in glob.glob(f"{os.path.expanduser('~')}/hal_embeddings/*.json"):
-    counter = 0
     with open(f, ) as infile:
         print(f"Loading {str(infile.name)} ({counter})")
         data.append(json.load(infile))
         counter = counter + 1
 
-        if counter % 10000 == 0:
-            load_data()
-            data = []
+    if counter % 10000 == 0:
+        load_data()
+        data = []
 
 load_data()
