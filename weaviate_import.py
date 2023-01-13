@@ -124,7 +124,7 @@ def load_data():
 for f in glob.glob(f"{os.path.expanduser('~')}/hal_embeddings/*.json"):
     counter = 0
     with open(f, ) as infile:
-        print(f"Loading {str(infile)}...")
+        print(f"Loading {str(infile.name)} ({counter})")
         data.append(json.load(infile))
         counter = counter + 1
 
