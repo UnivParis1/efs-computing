@@ -79,11 +79,7 @@ add_prop = {
 client.schema.property.create("Sentence", add_prop)
 
 data = []
-
-for f in glob.glob(f"{os.path.expanduser('~')}/hal_embeddings/*.json"):
-    with open(f, ) as infile:
-        print(f"Loading {str(infile)}...")
-        data.append(json.load(infile))
+authors_dict = {}
 
 # Configure a batch process
 client.batch.configure(
@@ -93,34 +89,47 @@ client.batch.configure(
     callback=None,
 )
 
-authors_dict = {}
 
-for sentence in data:
-    print("importing sentence: ", sentence["text"])
-    if len(sentence["text"]) < MIN_SENTENCE_LENGTH:
-        print("Too short, skip")
-        continue
-    sentence_uuid = uuid.UUID(sentence["uuid"])
-    sentence_properties = {
-        "docid": sentence["docid"],
-        "sentid": int(sentence["sentid"]),
-        "text": sentence["text"],
-    }
-    identifiers = sentence['authIdHal_s'] if len(sentence['authIdHal_s']) == 0 else sentence['authIdHal_s']
-    names = sentence['authLastNameFirstName_s']
-    client.batch.add_data_object(sentence_properties, "Sentence", sentence_uuid,
-                                 list(map(float, sentence["vector"])))
-    for index, identifier in enumerate(identifiers):
-        if not identifier in authors_dict.keys():
-            author_properties = {
-                "identifier": identifier,
-                "name": names[index] if len(names) > index else ''
-            }
-            author_uuid = uuid.uuid1()
-            client.batch.add_data_object(author_properties, "Author", author_uuid)
-            authors_dict[identifier] = author_uuid
-        else:
-            author_uuid = authors_dict[identifier]
-        client.batch.add_reference(str(sentence_uuid), 'Sentence', 'hasAuthors', str(author_uuid), 'Author')
+def load_data():
+    for sentence in data:
+        print("importing sentence: ", sentence["text"])
+        if len(sentence["text"]) < MIN_SENTENCE_LENGTH:
+            print("Too short, skip")
+            continue
+        sentence_uuid = uuid.UUID(sentence["uuid"])
+        sentence_properties = {
+            "docid": sentence["docid"],
+            "sentid": int(sentence["sentid"]),
+            "text": sentence["text"],
+        }
+        identifiers = sentence['authIdHal_s'] if len(sentence['authIdHal_s']) == 0 else sentence['authIdHal_s']
+        names = sentence['authLastNameFirstName_s']
+        client.batch.add_data_object(sentence_properties, "Sentence", sentence_uuid,
+                                     list(map(float, sentence["vector"])))
+        for index, identifier in enumerate(identifiers):
+            if not identifier in authors_dict.keys():
+                author_properties = {
+                    "identifier": identifier,
+                    "name": names[index] if len(names) > index else ''
+                }
+                author_uuid = uuid.uuid1()
+                client.batch.add_data_object(author_properties, "Author", author_uuid)
+                authors_dict[identifier] = author_uuid
+            else:
+                author_uuid = authors_dict[identifier]
+            client.batch.add_reference(str(sentence_uuid), 'Sentence', 'hasAuthors', str(author_uuid), 'Author')
+    client.batch.flush()
 
-client.batch.flush()
+
+for f in glob.glob(f"{os.path.expanduser('~')}/hal_embeddings/*.json"):
+    counter = 0
+    with open(f, ) as infile:
+        print(f"Loading {str(infile)}...")
+        data.append(json.load(infile))
+        counter = counter + 1
+
+        if counter % 10000 == 0:
+            load_data()
+            data = []
+
+load_data()
