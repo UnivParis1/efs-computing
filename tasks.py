@@ -36,7 +36,7 @@ def setup(**kwargs):
     print('done initializing sentence embedding model')
 
 
-def build_query(embedding, model):
+def build_query_with_model_filter(embedding, model):
     return f"""
     {{
         Get {{
@@ -47,6 +47,35 @@ def build_query(embedding, model):
             operator: Equal,
             valueString: "{model}"
             }}
+          nearVector: {{
+            vector: {str(embedding)}
+          }}
+        ) {{
+          docid
+          text 
+          sentid
+          hasAuthors {{ 
+            ...on Author {{
+              identifier
+              name
+            }}
+          }}
+          _additional {{
+            distance
+            certainty
+          }}
+        }}
+      }}
+    }}
+    """
+
+
+def build_query(embedding, model):
+    return f"""
+    {{
+        Get {{
+        Sentence (
+          limit: 100
           nearVector: {{
             vector: {str(embedding)}
           }}
