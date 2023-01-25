@@ -1,3 +1,4 @@
+import openai
 import weaviate
 from celery import Celery
 from celery.signals import worker_process_init
@@ -5,9 +6,18 @@ from dotenv import dotenv_values
 
 from sentence_transformers import SentenceTransformer
 
-MIN_PRECISION = 1.1
+DEFAULT_MODEL = "sbert"
 
 celery_params = dict(dotenv_values(".env.celery"))
+openai_params = dict(dotenv_values(".env.openai"))
+
+EMBEDDING_MODEL = 'text-embedding-ada-002'
+EMBEDDING_CTX_LENGTH = 8191
+EMBEDDING_ENCODING = 'cl100k_base'
+
+openai.organization = openai_params['organization']
+openai.api_key = openai_params['api_key']
+MIN_PRECISION = 1.1
 
 app = Celery('tasks', **celery_params)
 
@@ -26,12 +36,17 @@ def setup(**kwargs):
     print('done initializing sentence embedding model')
 
 
-def build_query(embedding):
+def build_query(embedding, model):
     return f"""
     {{
         Get {{
         Sentence (
           limit: 100
+          where: {{
+            path: ["model"],
+            operator: Equal,
+            valueString: "{model}"
+            }}
           nearVector: {{
             vector: {str(embedding)}
           }}
@@ -53,6 +68,10 @@ def build_query(embedding):
       }}
     }}
     """
+
+
+def get_openai_embedding(text_or_tokens, model=EMBEDDING_MODEL):
+    return openai.Embedding.create(input=text_or_tokens, model=model)["data"][0]["embedding"]
 
 
 def normalise(distance, minimal_distance, maximal_distance):
@@ -111,13 +130,14 @@ def format_output(scores, texts, names):
 
 
 @app.task
-def find_experts(sentence, precision):
+def find_experts(sentence, precision, model=DEFAULT_MODEL):
     client = weaviate.Client("http://localhost:8080")
-
-    embedding = initialization.model.encode([sentence])
-
-    results = client.query.raw(build_query(embedding[0]))
-
+    print(f"Requested model : {model}")
+    if model == 'ada':
+        embedding = f"[{' '.join(map(str, get_openai_embedding(sentence)))}]"
+    else:
+        embedding = initialization.model.encode([sentence])[0]
+    results = client.query.raw(build_query(embedding, model))
     scores, texts, names = compute_scores_by_author(results, max(MIN_PRECISION, float(precision)))
 
     return format_output(scores, texts, names)

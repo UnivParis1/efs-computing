@@ -1,0 +1,16 @@
+.idea
+.ipynb_checkpoints
+keywords
+venv
+
+#model formats
+*.model
+*.bin
+
+#parameters files
+.env.celery
+!.env.celery.example
+.env.proxies
+!.env.proxies.example
+.env.openai
+!.env.openai.example

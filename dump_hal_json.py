@@ -1,12 +1,9 @@
 #!/usr/bin/env python
 import argparse
-import asyncio
 import csv
-import itertools
 import os
 from pathlib import Path
 
-import httpx as httpx
 import requests
 
 DEFAULT_OUTPUT_DIR_NAME = f"{os.path.expanduser('~')}/hal_dump_json"
@@ -20,7 +17,7 @@ LIST_QUERY_TEMPLATE = "q=docType_s:(ART OR OUV OR COUV OR COMM OR THESE OR HDR O
                       "&sort=docid asc&rows=[ROWS]" \
                       "&fq=instStructAcronym_sci:UP1" \
                       "&fl=docid,fr_title_s,en_title_s,fr_subTitle_s,en_subTitle_s,fr_abstract_s,en_abstract_s,fr_keyword_s,en_keyword_s,structId_i,authIdHal_i,authIdHal_s,authLastNameFirstName_s,docType_s,ePublicationDate_s," \
-                      "instStructAcronym_s,labStructAcronym_s,structAcronym_s"
+                      "labStructId_i,authStructId_i,instStructAcronym_s,labStructAcronym_s,structAcronym_s"
 
 MAX_ATTEMPTS = 10
 
