@@ -20,6 +20,12 @@ sentence_class = {
             ],
             "description": "The text of the sentence",
             "name": "text",
+        }, {
+            "dataType": [
+                "string"
+            ],
+            "description": "Model : 'sbert' or 'ada",
+            "name": "model",
         },
         {
             "dataType": [
@@ -98,6 +104,7 @@ def load_data():
             continue
         sentence_uuid = uuid.UUID(sentence["uuid"])
         sentence_properties = {
+            "model": sentence["model"],
             "docid": sentence["docid"],
             "sentid": int(sentence["sentid"]),
             "text": sentence["text"],
@@ -122,7 +129,7 @@ def load_data():
 
 
 counter = 0
-for f in glob.glob(f"{os.path.expanduser('~')}/hal_embeddings/*.json"):
+for f in glob.glob(f"{os.path.expanduser('~')}/hal_embeddings_test/*.json"):
     with open(f, ) as infile:
         print(f"Loading {str(infile.name)} ({counter})")
         data.append(json.load(infile))
