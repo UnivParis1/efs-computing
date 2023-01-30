@@ -21,7 +21,7 @@ sbert_model = SentenceTransformer('sentence-transformers/paraphrase-multilingual
 
 nltk.download('punkt')
 
-csv = pd.read_csv(f"{os.path.expanduser('~')}/hal_p1_dump_json/hal_json.csv")
+csv = pd.read_csv(f"{os.path.expanduser('~')}/hal_dump/dump.csv")
 metadata = csv[['docid', 'fr_title_s', 'en_title_s', 'fr_abstract_s', 'en_abstract_s', 'authIdHal_s', 'authIdHal_i',
                 'authLastNameFirstName_s']]
 
