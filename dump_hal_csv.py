@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 import argparse
 import hashlib
+import logging
 import os
 from pathlib import Path
-from random import random
 
 import pandas as pd
 
 from hal_api_client import HalApiClient
+from log_handler import LogHandler
 
 COLUMNS = ['docid',
            'fr_title_s',
@@ -106,22 +107,24 @@ def parse_arguments():
 
 
 def main(args):
+    logger = LogHandler('log', 'hal_import.log', logging.INFO).create_rotating_log()
     days = args.days
     if days is None:
-        print("Missing days parameters : fetch the whole HAL database")
+        logger.info("Missing days parameters : fetch the whole HAL database")
     else:
-        print(f"Fetch the last {days} days modified or added publications from HAL database")
+        logger.info(f"Fetch the last {days} days modified or added publications from HAL database")
     rows = args.rows
-    print(f"Rows per request : {rows}")
+    logger.info(f"Rows per request : {rows}")
     directory = args.dir
     if not os.path.exists(directory):
         Path(directory).mkdir(parents=True, exist_ok=True)
-        print(f"Created directory {directory}")
+        logger.info(f"Created directory {directory}")
     file = args.file
     file_path = f"{directory}/{file}"
-    print(f"Output path : {file_path}")
+    logger.info(f"Output path : {file_path}")
     publications = load_or_create_publications_df(file_path)
     hal_api_client = HalApiClient(days=days, rows=rows, verbose=True)
+    created, updated, unchanged = 0, 0, 0
     while True:
         cursor, docs = hal_api_client.fetch_publications()
         new_lines = []
@@ -131,6 +134,7 @@ def main(args):
             selection = publications.loc[publications['docid'] == docid]
             existing_hash = None
             if len(selection) > 0:
+                logger.debug(f"{docid} exists in csv file")
                 existing_line = dict(selection.iloc[0])
                 existing_hash = existing_line['hash']
             new_values = extract_fields(doc)
@@ -140,16 +144,24 @@ def main(args):
                 if new_values_hash != existing_hash:
                     new_values.extend([False, True])
                     publications[publications['docid'] == docid] = new_values
+                    logger.debug(f"{docid} updated")
+                    updated += 1
+                else:
+                    unchanged += 1
+                    logger.debug(f"{docid} unchanged")
             else:
                 new_values.extend([True, False])
                 new_lines.append(new_values)
+                created += 1
+                logger.debug(f"{docid} created")
         if len(docs) == 0:
-            print("Download complete !")
+            logger.info("Download complete !")
             break
         else:
             publications = pd.concat([publications, pd.DataFrame(new_lines, columns=COLUMNS)])
     publications.to_csv(file_path, index=False)
-    print(f"Publications file created or updated at {file_path}")
+    logger.info(f"Publications file created or updated at {file_path}")
+    logger.info(f"Unchanged : {unchanged}, Created : {created}, Updated: {updated}")
 
 
 if __name__ == '__main__':
