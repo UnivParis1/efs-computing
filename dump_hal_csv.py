@@ -11,22 +11,20 @@ from hal_api_client import HalApiClient
 from log_handler import LogHandler
 
 COLUMNS = ['docid',
-           'fr_title_s',
-           'en_title_s',
-           'fr_subTitle_s',
-           'en_subTitle_s',
-           'fr_abstract_s',
-           'en_abstract_s',
-           'fr_keyword_s',
-           'en_keyword_s',
-           'authIdHal_i',
-           'authIdHal_s',
-           'authLastNameFirstName_s',
-           'labStructAcronym_s',
-           'instStructAcronym_s',
-           'structAcronym_s',
-           'docType_s',
-           'ePublicationDate_s',
+           'fr_title',
+           'en_title',
+           'fr_subtitle',
+           'en_subtitle',
+           'fr_abstract',
+           'en_abstract',
+           'fr_keyword',
+           'en_keyword',
+           'authors',
+           'affiliations',
+           'doc_type',
+           'publication_date',
+           'citation_ref',
+           'citation_full',
            'hash',
            'created',
            'updated'
@@ -55,7 +53,7 @@ def load_or_create_publications_df(file_path: str) -> pd.DataFrame:
     else:
         # publications = pd.read_csv(file_path, header=0, index_col='docid')
         publications = pd.read_csv(file_path, header=0)
-    return publications.astype(dtype={"docid": "int32"})
+    return publications.astype(dtype={"docid": "int32", "created": bool, "updated": bool})
 
 
 def extract_fields(doc: dict) -> list:
@@ -71,6 +69,23 @@ def extract_fields(doc: dict) -> list:
     -------
     values: list of formatted values
     """
+    form_ids = doc['authIdForm_i']
+    identifiers_mappings = [i.split(HalApiClient.FACET_SEP) for i in doc['authFullNameFormIDPersonIDIDHal_fs']]
+    identifiers_dicts = [
+        {'name': i[0], 'hal_id': i[1], 'form_id': i[1].split('-')[0], 'idahl_i': i[1].split('-')[1], 'idahl_s': i[2]}
+        for i in identifiers_mappings]
+    affiliations = [i.split(HalApiClient.FACET_SEP) for i in doc['authIdHasStructure_fs']]
+    affiliations_dicts = []
+    for affiliation in affiliations:
+        identifiers = list(filter(lambda arr: arr['hal_id'] == affiliation[0], identifiers_dicts))
+        # dedup
+        identifiers = [dict(t) for t in {tuple(d.items()) for d in identifiers}]
+        assert len(identifiers) == 1
+        org_id = int(affiliation[1].split(HalApiClient.JOIN_SEP)[1])
+        org_name = affiliation[2]
+        lab = org_id in doc.get('labStructId_i', [])
+        affiliations_dicts.append(
+            {'hal_id': identifiers[0]['hal_id'], 'org_id': org_id, 'org_name': org_name, 'lab': '1' if lab else '0'})
     values = [int(doc.get('docid')),
               doc.get('fr_title_s', [''])[0],
               doc.get('en_title_s', [''])[0],
@@ -80,14 +95,12 @@ def extract_fields(doc: dict) -> list:
               doc.get('en_abstract_s', [''])[0],
               "§§§".join(doc.get('fr_keyword_s', [''])),
               "§§§".join(doc.get('en_keyword_s', [''])),
-              "§§§".join(map(str, doc.get('authIdHal_i', ['']))),
-              "§§§".join(doc.get('authIdHal_s', [''])),
-              "§§§".join(doc.get('authLastNameFirstName_s', [''])),
-              "§§§".join(doc.get('labStructAcronym_s', [''])),
-              "§§§".join(doc.get('instStructAcronym_s', [''])),
-              "§§§".join(doc.get('structAcronym_s', [''])),
+              str(identifiers_dicts),
+              str(affiliations_dicts),
               doc.get('docType_s', ''),
-              doc.get('ePublicationDate_s', '')
+              doc.get('ePublicationDate_s', ''),
+              doc.get('citationRef_s', ''),
+              doc.get('citationFull_s', '')
               ]
     return values
 
@@ -123,7 +136,7 @@ def main(args):
     file_path = f"{directory}/{file}"
     logger.info(f"Output path : {file_path}")
     publications = load_or_create_publications_df(file_path)
-    hal_api_client = HalApiClient(days=days, rows=rows, verbose=True)
+    hal_api_client = HalApiClient(days=days, rows=rows, logger=logger)
     created, updated, unchanged = 0, 0, 0
     while True:
         cursor, docs = hal_api_client.fetch_publications()
@@ -158,7 +171,8 @@ def main(args):
             logger.info("Download complete !")
             break
         else:
-            publications = pd.concat([publications, pd.DataFrame(new_lines, columns=COLUMNS)])
+            publications = pd.concat([publications, pd.DataFrame(new_lines, columns=COLUMNS).astype(
+                dtype={"created": bool, "updated": bool})])
     publications.to_csv(file_path, index=False)
     logger.info(f"Publications file created or updated at {file_path}")
     logger.info(f"Unchanged : {unchanged}, Created : {created}, Updated: {updated}")
