@@ -2,12 +2,10 @@ import uuid
 
 
 class UUIDProvider:
-    NAMESPACE_HAL = uuid.uuid3(uuid.NAMESPACE_DNS, 'hal.science')
-    NAMESPACE_ADUM = uuid.uuid3(uuid.NAMESPACE_DNS, 'adum.fr')
+    NAMESPACE_P1 = uuid.uuid3(uuid.NAMESPACE_DNS, 'univ-paris1.fr')
 
-    def __init__(self, ns: uuid.UUID, val: str) -> None:
+    def __init__(self, val: str) -> None:
         self.val = val
-        self.ns = ns
 
     def value(self) -> uuid.UUID:
-        return uuid.uuid3(self.ns, self.val)
+        return uuid.uuid3(self.NAMESPACE_P1, self.val)

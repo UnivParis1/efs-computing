@@ -6,7 +6,8 @@ from pathlib import Path
 
 class LogHandler:
 
-    def __init__(self, dir_name: str, file_name: str, level=logging.INFO) -> None:
+    def __init__(self, logger_name: str, dir_name: str, file_name: str, level=logging.INFO) -> None:
+        self.logger_name = logger_name
         self.file_name = file_name
         self.dir_name = dir_name
         self.level = level
@@ -15,7 +16,7 @@ class LogHandler:
         """
         Creates a rotating log
         """
-        logger = logging.getLogger("Rotating Log")
+        logger = logging.getLogger(self.logger_name)
         logger.setLevel(self.level)
         if not os.path.exists(self.dir_name):
             Path(self.dir_name).mkdir(parents=True, exist_ok=True)

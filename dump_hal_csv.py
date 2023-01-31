@@ -120,7 +120,7 @@ def parse_arguments():
 
 
 def main(args):
-    logger = LogHandler('log', 'hal_import.log', logging.DEBUG).create_rotating_log()
+    logger = LogHandler('dump_hal_csv', 'log', 'hal_import.log', logging.DEBUG).create_rotating_log()
     days = args.days
     if days is None:
         logger.info("Missing days parameters : fetch the whole HAL database")
