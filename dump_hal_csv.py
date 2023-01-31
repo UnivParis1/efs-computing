@@ -72,7 +72,7 @@ def extract_fields(doc: dict) -> list:
     form_ids = doc['authIdForm_i']
     identifiers_mappings = [i.split(HalApiClient.FACET_SEP) for i in doc['authFullNameFormIDPersonIDIDHal_fs']]
     identifiers_dicts = [
-        {'name': i[0], 'hal_id': i[1], 'form_id': i[1].split('-')[0], 'idahl_i': i[1].split('-')[1], 'idahl_s': i[2]}
+        {'name': i[0], 'hal_id': i[1], 'form_id': i[1].split('-')[0], 'idhal_i': i[1].split('-')[1], 'idhal_s': i[2]}
         for i in identifiers_mappings]
     affiliations = [i.split(HalApiClient.FACET_SEP) for i in doc['authIdHasStructure_fs']]
     affiliations_dicts = []
@@ -106,7 +106,7 @@ def extract_fields(doc: dict) -> list:
 
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description='Fetches HAL SHS bibliographic references in Bibref format.')
+    parser = argparse.ArgumentParser(description='Fetches HAL bibliographic references in CSV format.')
     parser.add_argument('--days', dest='days',
                         help='Number of last days modified ou published item to fetch from Hal', default=None,
                         required=False, type=int)
@@ -120,7 +120,7 @@ def parse_arguments():
 
 
 def main(args):
-    logger = LogHandler('log', 'hal_import.log', logging.INFO).create_rotating_log()
+    logger = LogHandler('log', 'hal_import.log', logging.DEBUG).create_rotating_log()
     days = args.days
     if days is None:
         logger.info("Missing days parameters : fetch the whole HAL database")
