@@ -98,7 +98,7 @@ def extract_fields(doc: dict) -> list:
               str(identifiers_dicts),
               str(affiliations_dicts),
               doc.get('docType_s', ''),
-              doc.get('ePublicationDate_s', ''),
+              doc.get('publicationDate_tdate', ''),
               doc.get('citationRef_s', ''),
               doc.get('citationFull_s', '')
               ]
@@ -120,7 +120,7 @@ def parse_arguments():
 
 
 def main(args):
-    logger = LogHandler('dump_hal_csv', 'log', 'hal_import.log', logging.DEBUG).create_rotating_log()
+    logger = LogHandler('dump_hal_csv', 'log', 'dump_hal_csv.log', logging.DEBUG).create_rotating_log()
     days = args.days
     if days is None:
         logger.info("Missing days parameters : fetch the whole HAL database")
