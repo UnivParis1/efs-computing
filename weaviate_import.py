@@ -154,6 +154,13 @@ author_class = {
             ],
             "description": "The full name of the Author",
             "name": "name",
+        },
+        {
+            "dataType": [
+                "boolean"
+            ],
+            "description": "If the author belongs to our institution",
+            "name": "own_inst",
         }
     ]
 }
@@ -261,6 +268,7 @@ def load_authors_data(authors, client, reset_db=False):
         author_uuid = uuid.UUID(author["uuid"])
         author_properties = {
             "name": author["name"],
+            "own_inst": author["own_inst"] is True,
             "identifier": str(identifier),
         }
         clean_properties(author_properties)
@@ -275,21 +283,21 @@ def load_authors_data(authors, client, reset_db=False):
 
 def update_authors_relations(authors, client, reset_db=False):
     assert reset_db is False
-    logger.info(f"Updating author's relations : {author['name']}")
     for author in authors:
+        logger.info(f"Updating author's relations : {author['name']}")
         client.data_object.reference.update(
             from_uuid=author["uuid"],
             from_property_name='hasOrganisations',
             to_uuids=author.get('has_lab', []),
             from_class_name='Author',
-            to_class_name='Organisation',
+            to_class_names='Organisation',
         )
         client.data_object.reference.update(
             from_uuid=author["uuid"],
             from_property_name='hasOrganisations',
             to_uuids=author.get('has_inst', []),
             from_class_name='Author',
-            to_class_name='Organisation',
+            to_class_names='Organisation',
         )
 
 
@@ -300,7 +308,7 @@ def load_publication_data(publications, client, reset_db=False):
         publication_properties = {key: publication[key] for key in publication.keys()
                                   & {'docid', 'fr_title', 'en_title', 'fr_subtitle', 'en_subtitle', 'fr_abstract',
                                      'en_abstract', 'fr_keyword', 'en_keyword', 'doc_type',
-                                     'citation_ref', 'citation_full'}}
+                                     'citation_ref', 'citation_full', 'publication_date'}}
         split_keywords(publication_properties, 'fr_keyword')
         split_keywords(publication_properties, 'en_keyword')
         vector = publication.get("text_ada_en_embed", None) or publication.get("text_ada_fr_embed",
@@ -318,15 +326,15 @@ def load_publication_data(publications, client, reset_db=False):
                 client.batch.add_reference(publication["uuid"], 'Publication', 'hasOrganisations', org,
                                            'Organisation')
             for auth in publication.get('has_authors', []):
-                client.batch.add_reference(publication["uuid"], 'Publication', 'hasOrganisations', auth,
+                client.batch.add_reference(publication["uuid"], 'Publication', 'hasAuthors', auth,
                                            'Author')
     client.batch.flush()
 
 
 def update_publication_relations(publications, client, reset_db=False):
     assert reset_db is False
-    logger.info(f"Updating publication's relations : {str(publication['docid'])}")
     for publication in publications:
+        logger.info(f"Updating publication's relations : {str(publication['docid'])}")
         client.data_object.reference.update(
             from_uuid=publication["uuid"],
             from_property_name='hasOrganisations',
