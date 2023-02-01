@@ -17,7 +17,8 @@ EMBEDDING_ENCODING = 'cl100k_base'
 
 openai.organization = openai_params['organization']
 openai.api_key = openai_params['api_key']
-MIN_PRECISION = 1.1
+MIN_PRECISION = 0.05
+MAX_PRECISION = 0.7
 
 app = Celery('tasks', **celery_params)
 
@@ -54,10 +55,24 @@ def build_query_with_model_filter(embedding, model):
           docid
           text 
           sentid
-          hasAuthors {{ 
-            ...on Author {{
-              identifier
-              name
+          hasPublication {{ 
+            ...on Publication {{
+              doc_type
+              docid
+              fr_title
+              en_title
+              fr_abstract
+              en_abstract
+              fr_keyword
+              en_keyword
+              citation_ref
+              citation_full
+              hasAuthors {{
+                ...on Author {{
+                  identifier
+                  name
+                }}
+              }}
             }}
           }}
           _additional {{
@@ -72,31 +87,46 @@ def build_query_with_model_filter(embedding, model):
 
 def build_query(embedding, model):
     return f"""
-    {{
-        Get {{
-        Sentence (
-          limit: 100
-          nearVector: {{
-            vector: {str(embedding)}
-          }}
-        ) {{
-          docid
-          text 
-          sentid
-          hasAuthors {{ 
-            ...on Author {{
-              identifier
-              name
+        {{
+            Get {{
+            Sentence (
+              limit: 100
+              nearVector: {{
+                vector: {str(embedding)}
+              }}
+            ) {{
+              docid
+              text 
+              sentid
+              hasPublication {{ 
+                ...on Publication {{
+                  doc_type
+                  docid
+                  fr_title
+                  en_title
+                  fr_abstract
+                  en_abstract
+                  fr_keyword
+                  en_keyword
+                  citation_ref
+                  citation_full
+                  hasAuthors {{
+                    ...on Author {{
+                      identifier
+                      name
+                      own_inst
+                    }}
+                  }}
+                }}
+              }}
+              _additional {{
+                distance
+                certainty
+              }}
             }}
           }}
-          _additional {{
-            distance
-            certainty
-          }}
         }}
-      }}
-    }}
-    """
+        """
 
 
 def get_openai_embedding(text_or_tokens, model=EMBEDDING_MODEL):
@@ -107,55 +137,55 @@ def normalise(distance, minimal_distance, maximal_distance):
     return max(0, (maximal_distance - distance) / (maximal_distance - minimal_distance))
 
 
-def compute_distances(results, precision):
-    minimal_distance = None
-    maximal_distance = None
-    for result in results['data']['Get']['Sentence']:
-        if result['hasAuthors'] is None:
-            continue
-        distance = float(result['_additional']['distance'])
-        if minimal_distance is None:
-            minimal_distance = distance
-        maximal_distance = distance
-        if distance >= precision * minimal_distance:
-            break
-    print(f">>>>>>>>>>>>> {str(minimal_distance)} {str(maximal_distance)} {str(precision)}")
-    return maximal_distance, minimal_distance
+def compute_score(distance, precision):
+    return (precision - distance) / precision
 
 
 def compute_scores_by_author(results, precision):
-    maximal_distance, minimal_distance = compute_distances(results, precision)
-    scores = {}
-    texts = {}
-    names = {}
-    for result in results['data']['Get']['Sentence']:
-        distance = result['_additional']['distance']
-        text = result['text']
-        # print(f"{distance} ({result['docid']}) -> {text}")
-        if result['hasAuthors'] is None:
+    inverted_results = {}
+    for sent in results['data']['Get']['Sentence']:
+        distance = sent['_additional']['distance']
+        if distance > precision:
             continue
-        for author in result['hasAuthors']:
-            author_identifier = author['identifier']
-            if author_identifier not in scores.keys():
-                scores[author_identifier] = 0
-                texts[author_identifier] = []
-                names[author_identifier] = author['name']
-            if text not in texts[author_identifier]:
-                scores[author_identifier] += normalise(float(distance), minimal_distance, maximal_distance)
-                texts[author_identifier].append(text)
-    return scores, texts, names
+        sent_score = compute_score(distance, precision)
+        docid = sent['docid']
+        sentid = sent['sentid']
+        sent_data = {'text': sent['text'], 'score': sent_score, 'id': sentid}
+        print(f"{distance} ({docid}) -> {sent['text']} (score : {sent_score}")
+        if sent['hasPublication'] is None:
+            continue
+        pub = sent['hasPublication'][0]
+        pub_data = {key: str(pub[key]) if pub[key] is not None else '' for key in
+                    ['citation_full', 'citation_ref', 'doc_type', 'docid', 'en_abstract', 'en_keyword', 'en_title',
+                     'fr_abstract', 'fr_keyword', 'fr_title']}
+        if pub['hasAuthors'] is None:
+            continue
+        for auth in pub['hasAuthors']:
+            author_identifier = auth['identifier']
+            auth_data = {key: str(auth[key]) if auth[key] is not None else '' for key in
+                         ['identifier', 'name', 'own_inst']}
+            if author_identifier not in inverted_results.keys():
+                inverted_results[author_identifier] = auth_data | {'pubs': {}, 'score': 0, 'max_score': 0,
+                                                                   'avg_score': 0, 'scores_for_avg': []}
+            if docid not in inverted_results[author_identifier]['pubs'].keys():
+                inverted_results[author_identifier]['pubs'][docid] = pub_data | {'score': 0, 'sents': {}}
+            inverted_results[author_identifier]['pubs'][docid]['score'] += sent_score
+            inverted_results[author_identifier]['score'] += sent_score
+            inverted_results[author_identifier]['max_score'] = max(sent_score,
+                                                                   inverted_results[author_identifier]['max_score'])
+            inverted_results[author_identifier]['scores_for_avg'].append(sent_score)
+            inverted_results[author_identifier]['avg_scores'] = avg(
+                inverted_results[author_identifier]['scores_for_avg'])
+            if sentid not in inverted_results[author_identifier]['pubs'][docid]['sents'].keys():
+                inverted_results[author_identifier]['pubs'][docid]['sents'][sentid] = sent_data | {'score': sent_score}
+    return inverted_results
 
 
-def format_output(scores, texts, names):
-    print(scores)
-    authors_list = sorted([(v, k) for k, v in scores.items() if v > 0], reverse=True)
-    print(authors_list)
-    output = []
-    for author in authors_list:
-        output.append(
-            {'identifier': author[1], 'name': names[author[1]], 'score': author[0], 'texts': texts[author[1]]}
-        )
-    return output
+def avg(scores_list):
+    return sum(scores_list) / len(scores_list)
+
+def apply_limits(precision):
+    return min(MAX_PRECISION, max(MIN_PRECISION, float(precision)))
 
 
 @app.task
@@ -167,6 +197,4 @@ def find_experts(sentence, precision, model=DEFAULT_MODEL):
     else:
         embedding = initialization.model.encode([sentence])[0]
     results = client.query.raw(build_query(embedding, model))
-    scores, texts, names = compute_scores_by_author(results, max(MIN_PRECISION, float(precision)))
-
-    return format_output(scores, texts, names)
+    return compute_scores_by_author(results, apply_limits(precision))
