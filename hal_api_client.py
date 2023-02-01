@@ -16,7 +16,7 @@ class HalApiClient:
                           "&fl=docid,fr_title_s,en_title_s,fr_subTitle_s,en_subTitle_s,fr_abstract_s,en_abstract_s," \
                           "fr_keyword_s,en_keyword_s," \
                           "authIdForm_i,authFullNameFormIDPersonIDIDHal_fs,docType_s," \
-                          "ePublicationDate_s,citationFull_s,citationRef_s," \
+                          "publicationDate_tdate,citationFull_s,citationRef_s," \
                           "authIdHasStructure_fs, labStructId_i"
     DATE_INTERVAL_TEMPLATE = "AND (submittedDate_tdate:[NOW-%%DAYS%%DAYS/DAY TO NOW/HOUR] " \
                              "OR modifiedDate_tdate:[NOW-%%DAYS%%DAYS/DAY TO NOW/HOUR])"
