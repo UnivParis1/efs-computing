@@ -3,7 +3,6 @@ import ast
 import json
 import logging
 import os
-import uuid
 from pathlib import Path
 
 import nltk
@@ -76,7 +75,7 @@ def enable_openai():
 
 def main(args):
     global logger
-    logger = LogHandler("vectorize_sentences", 'log', 'hal_embeddings.log', logging.INFO).create_rotating_log()
+    logger = LogHandler("vectorize_sentences", 'log', 'vectorize_sentences.log', logging.INFO).create_rotating_log()
     openai = args.openai
     if openai:
         enable_openai()
@@ -194,7 +193,11 @@ def main(args):
         dump_to_json('inst', inst_data_struct.values(), output_dir)
         dump_to_json('auth', authors_data_struct.values(), output_dir)
         dump_to_json('pub', pub_data_struct.values(), output_dir)
-
+        csv.loc[csv['docid'] == row['docid'], 'created'] = False
+        csv.loc[csv['docid'] == row['docid'], 'updated'] = False
+        if index % 1000 == 0:
+            logger.debug(f"Saving csv at index {index}")
+            csv.to_csv(file_path, index=False)
     csv.loc[:, 'created'] = False
     csv.loc[:, 'updated'] = False
     csv.to_csv(file_path, index=False)
