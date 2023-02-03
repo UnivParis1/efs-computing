@@ -166,16 +166,22 @@ def compute_scores_by_author(results, precision):
                          ['identifier', 'name', 'own_inst']}
             if author_identifier not in inverted_results.keys():
                 inverted_results[author_identifier] = auth_data | {'pubs': {}, 'score': 0, 'max_score': 0,
-                                                                   'avg_score': 0, 'scores_for_avg': []}
+                                                                   'avg_score': 0, 'scores_for_avg': [],
+                                                                   'min_dist': 2.0,
+                                                                   'avg_dist': 0, 'dist_for_avg': []}
             if docid not in inverted_results[author_identifier]['pubs'].keys():
                 inverted_results[author_identifier]['pubs'][docid] = pub_data | {'score': 0, 'sents': {}}
             inverted_results[author_identifier]['pubs'][docid]['score'] += sent_score
             inverted_results[author_identifier]['score'] += sent_score
             inverted_results[author_identifier]['max_score'] = max(sent_score,
                                                                    inverted_results[author_identifier]['max_score'])
+            inverted_results[author_identifier]['min_dist'] = min(distance,
+                                                                  inverted_results[author_identifier]['min_dist'])
             inverted_results[author_identifier]['scores_for_avg'].append(sent_score)
+            inverted_results[author_identifier]['dist_for_avg'].append(distance)
             inverted_results[author_identifier]['avg_scores'] = avg(
                 inverted_results[author_identifier]['scores_for_avg'])
+            inverted_results[author_identifier]['avg_dist'] = avg(inverted_results[author_identifier]['dist_for_avg'])
             if sentid not in inverted_results[author_identifier]['pubs'][docid]['sents'].keys():
                 inverted_results[author_identifier]['pubs'][docid]['sents'][sentid] = sent_data | {'score': sent_score}
     return inverted_results
@@ -183,6 +189,7 @@ def compute_scores_by_author(results, precision):
 
 def avg(scores_list):
     return sum(scores_list) / len(scores_list)
+
 
 def apply_limits(precision):
     return min(MAX_PRECISION, max(MIN_PRECISION, float(precision)))

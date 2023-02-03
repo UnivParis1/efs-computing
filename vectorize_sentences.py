@@ -15,6 +15,10 @@ from hal_utils import choose_author_identifier
 from log_handler import LogHandler
 from uuid_provider import UUIDProvider
 
+MAX_OPENAI_API_ATTEMPTS = 10
+
+PERSIST_RATE = 100
+
 OWN_INST_ORG_ID = 7550
 
 DEFAULT_OUTPUT_DIR_NAME = f"{os.path.expanduser('~')}/hal_embeddings"
@@ -50,12 +54,21 @@ def split_into_sentences(text):
     return []
 
 
-def get_openai_embedding(text_or_tokens, model=EMBEDDING_MODEL):
-    return openai.Embedding.create(input=text_or_tokens, model=model)["data"][0]["embedding"]
+def get_openai_embedding(text_or_tokens, model=EMBEDDING_MODEL, attempt=0):
+    if attempt > MAX_OPENAI_API_ATTEMPTS:
+        logger.error(f"Max number of failures reached, abort")
+        exit()
+    try:
+        embedding = openai.Embedding.create(input=text_or_tokens, model=model)["data"][0]["embedding"]
+        return embedding
+    except openai.OpenAIError as e:
+        logger.error(f"Error during OpenAI API call : {str(e)}, new attempt")
+        return get_openai_embedding(text_or_tokens, model, attempt + 1)
 
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description='Converts HAL bibliographic references to embeddings for hal import.')
+    parser = argparse.ArgumentParser(
+        description='Converts HAL bibliographic references to embeddings for hal import.')
     parser.add_argument('--csv_dir', dest='csv_dir',
                         help='CSV input file directory', required=False, default=DEFAULT_INPUT_DIR_NAME)
     parser.add_argument('--output_dir', dest='output_dir',
@@ -75,7 +88,8 @@ def enable_openai():
 
 def main(args):
     global logger
-    logger = LogHandler("vectorize_sentences", 'log', 'vectorize_sentences.log', logging.INFO).create_rotating_log()
+    logger = LogHandler("vectorize_sentences", 'log', 'vectorize_sentences.log',
+                        logging.INFO).create_rotating_log()
     openai = args.openai
     if openai:
         enable_openai()
@@ -85,11 +99,14 @@ def main(args):
     file_path = f"{directory}/{file}"
     csv = pd.read_csv(file_path)
     copy = csv.copy()
+    logger.info(f"Total number of documents : {len(csv)}")
     copy = copy.query('updated!=0 | created!=0')
-
+    logger.info(f"Number of documents to process : {len(copy)}")
     metadata = copy[
-        ['docid', 'fr_title', 'en_title', 'fr_subtitle', 'en_subtitle', 'fr_abstract', 'en_abstract', 'fr_keyword',
-         'en_keyword', 'authors', 'affiliations', 'doc_type', 'publication_date', 'citation_ref', 'citation_full']]
+        ['docid', 'fr_title', 'en_title', 'fr_subtitle', 'en_subtitle', 'fr_abstract', 'en_abstract',
+         'fr_keyword',
+         'en_keyword', 'authors', 'affiliations', 'doc_type', 'publication_date', 'citation_ref',
+         'citation_full']]
     output_dir = args.output_dir
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
@@ -109,7 +126,8 @@ def main(args):
         lab_data_struct = {}
         inst_data_struct = {}
         pub_data_struct = {}
-        authors_data_struct = {auth['hal_id']: auth | {'has_lab': [], 'has_inst': [], 'own_inst': False} for auth in
+        authors_data_struct = {auth['hal_id']: auth | {'has_lab': [], 'has_inst': [], 'own_inst': False} for
+                               auth in
                                ast.literal_eval(row['authors'])}
         for key in authors_data_struct:
             identifier = choose_author_identifier(authors_data_struct[key])
@@ -142,7 +160,8 @@ def main(args):
             prop_name = 'has_lab' if is_lab else 'has_inst'
             org_id = affiliation['org_id']
             org_uuid = str(UUIDProvider(f"hal-org-{org_id}").value())
-            org = {'id': org_id, 'name': affiliation['org_name'], 'uuid': org_uuid, 'lab': str(1 if is_lab else 0)}
+            org = {'id': org_id, 'name': affiliation['org_name'], 'uuid': org_uuid,
+                   'lab': str(1 if is_lab else 0)}
             if is_lab:
                 lab_data_struct[org_id] = org
             else:
@@ -195,8 +214,8 @@ def main(args):
         dump_to_json('pub', pub_data_struct.values(), output_dir)
         csv.loc[csv['docid'] == row['docid'], 'created'] = False
         csv.loc[csv['docid'] == row['docid'], 'updated'] = False
-        if index % 1000 == 0:
-            logger.debug(f"Saving csv at index {index}")
+        if index % PERSIST_RATE == 0:
+            logger.info(f"Saving csv at index {index}")
             csv.to_csv(file_path, index=False)
     csv.loc[:, 'created'] = False
     csv.loc[:, 'updated'] = False
