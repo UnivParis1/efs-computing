@@ -116,6 +116,8 @@ def parse_arguments():
                         help='Output directory', required=False, default=DEFAULT_OUTPUT_DIR_NAME)
     parser.add_argument('--file', dest='file',
                         help='Output CSV file name', required=False, default=DEFAULT_OUTPUT_FILE_NAME)
+    parser.add_argument('--filter_documents', dest='filter_documents',
+                        help='Limited set of document types', required=False, default=False, type=bool)
     return parser.parse_args()
 
 
@@ -126,6 +128,11 @@ def main(args):
         logger.info("Missing days parameters : fetch the whole HAL database")
     else:
         logger.info(f"Fetch the last {days} days modified or added publications from HAL database")
+    filter_documents = args.filter_documents
+    if filter_documents is False:
+        logger.info("All type of documents requested")
+    else:
+        logger.info(f"Limited set of doctypes")
     rows = args.rows
     logger.info(f"Rows per request : {rows}")
     directory = args.dir
@@ -136,7 +143,7 @@ def main(args):
     file_path = f"{directory}/{file}"
     logger.info(f"Output path : {file_path}")
     publications = load_or_create_publications_df(file_path)
-    hal_api_client = HalApiClient(days=days, rows=rows, logger=logger)
+    hal_api_client = HalApiClient(days=days, rows=rows, logger=logger, filtered=filter_documents)
     created, updated, unchanged = 0, 0, 0
     while True:
         cursor, docs = hal_api_client.fetch_publications()

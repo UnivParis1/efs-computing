@@ -9,7 +9,10 @@ class HalApiClient:
     FACET_SEP = '_FacetSep_'
     JOIN_SEP = '_JoinSep_'
 
-    LIST_QUERY_TEMPLATE = "q=docType_s:(ART OR OUV OR COUV OR COMM OR THESE OR HDR OR REPORT OR NOTICE OR PROCEEDINGS)" \
+    FILTERED_QUERY = "docType_s:(ART OR OUV OR COUV OR COMM OR THESE OR HDR OR REPORT OR NOTICE OR PROCEEDINGS)"
+    NOT_FILTERED_QUERY = "*:*"
+
+    LIST_QUERY_TEMPLATE = "q=%%FILTER%%" \
                           "&cursorMark=%%CURSOR%%" \
                           "&sort=docid asc&rows=%%ROWS%%" \
                           "&fq=instStructAcronym_sci:UP1 %%DATE_INTERVAL%%" \
@@ -21,9 +24,10 @@ class HalApiClient:
     DATE_INTERVAL_TEMPLATE = "AND (submittedDate_tdate:[NOW-%%DAYS%%DAYS/DAY TO NOW/HOUR] " \
                              "OR modifiedDate_tdate:[NOW-%%DAYS%%DAYS/DAY TO NOW/HOUR])"
 
-    def __init__(self, days: int, rows: int, logger: logging.Logger) -> None:
+    def __init__(self, days: int, rows: int, logger: logging.Logger, filtered: bool) -> None:
         self.rows = rows
         self.logger = logger
+        self.filter = self.FILTERED_QUERY if filtered else self.NOT_FILTERED_QUERY
         self.date_interval = HalApiClient.DATE_INTERVAL_TEMPLATE.replace('%%DAYS%%',
                                                                          str(days)) if days is not None else ''
         self.cursor = "*"
@@ -38,6 +42,7 @@ class HalApiClient:
             .replace('%%CURSOR%%',
                      str(self.cursor)) \
             .replace('%%ROWS%%', str(self.rows)) \
+            .replace('%%FILTER%%', str(self.filter)) \
             .replace('%%DATE_INTERVAL%%', self.date_interval)
         self.logger.debug(f"Request to HAL : {json_request_string}")
         response = requests.get(json_request_string, timeout=360)
