@@ -37,17 +37,12 @@ def setup(**kwargs):
     print('done initializing sentence embedding model')
 
 
-def build_query_with_model_filter(embedding, model):
+def build_query(embedding, sentence_class):
     return f"""
     {{
         Get {{
-        Sentence (
+        {sentence_class} (
           limit: 100
-          where: {{
-            path: ["model"],
-            operator: Equal,
-            valueString: "{model}"
-            }}
           nearVector: {{
             vector: {str(embedding)}
           }}
@@ -71,6 +66,7 @@ def build_query_with_model_filter(embedding, model):
                 ...on Author {{
                   identifier
                   name
+                  own_inst
                 }}
               }}
             }}
@@ -84,51 +80,6 @@ def build_query_with_model_filter(embedding, model):
     }}
     """
 
-
-def build_query(embedding, model):
-    return f"""
-        {{
-            Get {{
-            Sentence (
-              limit: 100
-              nearVector: {{
-                vector: {str(embedding)}
-              }}
-            ) {{
-              docid
-              text 
-              sentid
-              hasPublication {{ 
-                ...on Publication {{
-                  doc_type
-                  docid
-                  fr_title
-                  en_title
-                  fr_abstract
-                  en_abstract
-                  fr_keyword
-                  en_keyword
-                  citation_ref
-                  citation_full
-                  hasAuthors {{
-                    ...on Author {{
-                      identifier
-                      name
-                      own_inst
-                    }}
-                  }}
-                }}
-              }}
-              _additional {{
-                distance
-                certainty
-              }}
-            }}
-          }}
-        }}
-        """
-
-
 def get_openai_embedding(text_or_tokens, model=EMBEDDING_MODEL):
     return openai.Embedding.create(input=text_or_tokens, model=model)["data"][0]["embedding"]
 
@@ -141,9 +92,9 @@ def compute_score(distance, precision):
     return (precision - distance) / precision
 
 
-def compute_scores_by_author(results, precision):
+def compute_scores_by_author(results, precision, sentence_class):
     inverted_results = {}
-    for sent in results['data']['Get']['Sentence']:
+    for sent in results['data']['Get'][sentence_class]:
         distance = sent['_additional']['distance']
         if distance > precision:
             continue
@@ -199,9 +150,12 @@ def apply_limits(precision):
 def find_experts(sentence, precision, model=DEFAULT_MODEL):
     client = weaviate.Client("http://localhost:8080")
     print(f"Requested model : {model}")
+    sentence_class = None
     if model == 'ada':
+        sentence_class = "AdaSentence"
         embedding = f"[{' '.join(map(str, get_openai_embedding(sentence)))}]"
     else:
+        sentence_class = "SbertSentence"
         embedding = initialization.model.encode([sentence])[0]
-    results = client.query.raw(build_query(embedding, model))
-    return compute_scores_by_author(results, apply_limits(precision))
+    results = client.query.raw(build_query(embedding, sentence_class))
+    return compute_scores_by_author(results, apply_limits(precision), sentence_class)
