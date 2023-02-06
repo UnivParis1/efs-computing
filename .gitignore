@@ -12,6 +12,8 @@ log/*.log
 log/*.log.*
 
 #parameters files
+.env.weaviate
+!.env.weaviate.example
 .env.celery
 !.env.celery.example
 .env.proxies

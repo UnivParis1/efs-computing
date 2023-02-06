@@ -5,6 +5,7 @@ import logging
 import os
 import uuid
 from pathlib import Path
+from dotenv import dotenv_values
 
 import numpy as np
 import weaviate
@@ -12,9 +13,16 @@ import weaviate
 from hal_utils import choose_author_identifier
 from log_handler import LogHandler
 
+weaviate_params = dict(dotenv_values(".env.weaviate"))
+
 KEYWORDS_SEPARATOR = '§§§'
 
 DEFAULT_INPUT_DIR_NAME = f"{os.path.expanduser('~')}/hal_embeddings"
+
+SENTENCE_CLASS_NAMES = {
+    "ada": "AdaSentence",
+    "sbert": "SbertSentence",
+}
 
 sentence_class = {
     "class": "Sentence",
@@ -50,6 +58,9 @@ sentence_class = {
     ]
 }
 
+ada_sentence_class = sentence_class | {"class": "AdaSentence"}
+sbert_sentence_class = sentence_class | {"class": "SbertSentence"}
+
 publication_class = {
     "class": "Publication",
     "description": "Publications of all kind",
@@ -58,41 +69,41 @@ publication_class = {
             "dataType": [
                 "text"
             ],
-            "description": "The french title of the sentence",
+            "description": "The french title of the publication",
             "name": "fr_title",
         },
         {
             "dataType": [
                 "text"
             ],
-            "description": "The english title of the sentence",
+            "description": "The english title of the publication",
             "name": "en_title",
         },
         {
             "dataType": [
                 "text"
             ],
-            "description": "The french subtitle of the sentence",
+            "description": "The french subtitle of the publication",
             "name": "fr_subtitle",
         },
         {
             "dataType": [
                 "text"
             ],
-            "description": "The english subtitle of the sentence",
+            "description": "The english subtitle of the publication",
             "name": "en_subtitle",
         }, {
             "dataType": [
                 "text"
             ],
-            "description": "The french abstract of the sentence",
+            "description": "The french abstract of the publication",
             "name": "fr_abstract",
         },
         {
             "dataType": [
                 "text"
             ],
-            "description": "The english abstract of the sentence",
+            "description": "The english abstract of the publication",
             "name": "en_abstract",
         },
         {
@@ -214,25 +225,27 @@ organisation_prop = {
 
 
 def get_client():
-    return weaviate.Client("http://localhost:8080")
+    return weaviate.Client(weaviate_params['host'], timeout_config=(1000, 1000))
 
 
 def configure(client):
     client.batch.configure(
         batch_size=1000,
         dynamic=True,
-        timeout_retries=3,
+        timeout_retries=10,
         callback=None,
     )
 
 
 def reset(client):
     client.schema.delete_all()
-    client.schema.create_class(sentence_class)
+    client.schema.create_class(ada_sentence_class)
+    client.schema.create_class(sbert_sentence_class)
     client.schema.create_class(author_class)
     client.schema.create_class(organisation_class)
     client.schema.create_class(publication_class)
-    client.schema.property.create("Sentence", publication_prop)
+    client.schema.property.create("AdaSentence", publication_prop)
+    client.schema.property.create("SbertSentence", publication_prop)
     client.schema.property.create("Publication", author_prop)
     client.schema.property.create("Publication", organisation_prop)
     client.schema.property.create("Author", organisation_prop)
@@ -369,10 +382,11 @@ def load_sent_data(sentences, client, reset_db=False):
             "text": sentence["text"],
         }
         clean_properties(sentence_properties)
-        client.batch.add_data_object(sentence_properties, "Sentence", sentence_uuid,
+        client.batch.add_data_object(sentence_properties, SENTENCE_CLASS_NAMES[sentence["model"]], sentence_uuid,
                                      list(map(float, sentence["vector"])))
         if reset_db:
-            client.batch.add_reference(sentence["uuid"], 'Sentence', 'hasPublication', sentence['pub_uuid'],
+            client.batch.add_reference(sentence["uuid"], SENTENCE_CLASS_NAMES[sentence["model"]], 'hasPublication',
+                                       sentence['pub_uuid'],
                                        'Publication')
     client.batch.flush()
 
@@ -387,7 +401,7 @@ def update_sentence_relations(sentences, client, reset_db=False):
             from_uuid=sentence["uuid"],
             from_property_name='hasPublication',
             to_uuids=[pub_uuid],
-            from_class_name='Sentence',
+            from_class_name=SENTENCE_CLASS_NAMES[sentence["model"]],
             to_class_names='Publication',
         )
 
