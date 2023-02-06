@@ -225,14 +225,14 @@ organisation_prop = {
 
 
 def get_client():
-    return weaviate.Client(weaviate_params['host'])
+    return weaviate.Client(weaviate_params['host'], timeout_config=(1000, 1000))
 
 
 def configure(client):
     client.batch.configure(
         batch_size=1000,
         dynamic=True,
-        timeout_retries=3,
+        timeout_retries=10,
         callback=None,
     )
 
