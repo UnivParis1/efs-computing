@@ -121,7 +121,9 @@ def main(args):
     metadata.loc[:, "text_fr_concat"] = metadata.loc[:, "texts_fr"].map(lambda strs: ' '.join(strs))
     metadata.loc[:, "text_en_concat"] = metadata.loc[:, "texts_en"].map(lambda strs: ' '.join(strs))
     total = len(metadata)
+    counter = 0
     for index, row in metadata.iterrows():
+        counter += 1
         affiliations = ast.literal_eval(row['affiliations'])
         lab_data_struct = {}
         inst_data_struct = {}
@@ -214,8 +216,8 @@ def main(args):
         dump_to_json('pub', pub_data_struct.values(), output_dir)
         csv.loc[csv['docid'] == row['docid'], 'created'] = False
         csv.loc[csv['docid'] == row['docid'], 'updated'] = False
-        if index % PERSIST_RATE == 0:
-            logger.info(f"Saving csv at index {index}")
+        if counter % PERSIST_RATE == 0:
+            logger.info(f"Saving csv at index {index} - counter {counter}/{total}")
             csv.to_csv(file_path, index=False)
     csv.loc[:, 'created'] = False
     csv.loc[:, 'updated'] = False
