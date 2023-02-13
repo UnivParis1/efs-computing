@@ -3,6 +3,8 @@ import ast
 import json
 import logging
 import os
+import random
+import time
 from pathlib import Path
 
 import nltk
@@ -15,7 +17,7 @@ from hal_utils import choose_author_identifier
 from log_handler import LogHandler
 from uuid_provider import UUIDProvider
 
-MAX_OPENAI_API_ATTEMPTS = 10
+MAX_OPENAI_API_ATTEMPTS = 30
 
 PERSIST_RATE = 100
 
@@ -62,7 +64,11 @@ def get_openai_embedding(text_or_tokens, model=EMBEDDING_MODEL, attempt=0):
         embedding = openai.Embedding.create(input=text_or_tokens, model=model)["data"][0]["embedding"]
         return embedding
     except openai.OpenAIError as e:
-        logger.error(f"Error during OpenAI API call : {str(e)}, new attempt")
+        randomness_collision_avoidance = random.randint(0, 1000) / 1000.0
+        delay_secs = random.randint(2, 8)
+        sleep_dur = delay_secs + randomness_collision_avoidance
+        logger.error(f"Error during OpenAI API call : {str(e)}, Retrying in {round(sleep_dur, 2)} seconds.")
+        time.sleep(sleep_dur)
         return get_openai_embedding(text_or_tokens, model, attempt + 1)
 
 
