@@ -1,4 +1,5 @@
 import argparse
+import traceback
 from datetime import datetime
 
 import weaviate
@@ -31,21 +32,21 @@ def main(args):
     prefix = args.prefix
     folder_time = datetime.now().strftime("%Y%m%d-%H%M%S")
     try:
-        # result = get_client().backup.create(
-        #     backup_id=f"{prefix}-{folder_time}",
-        #     backend="filesystem",
-        #     include_classes=["AdaSentence", "SbertSentence", "Publication", "Author", "Organisation"],
-        #     wait_for_completion=True,
-        # )
-        result = {'status': 'SUCCESS', 'path': 'Toto'}
+        result = get_client().backup.create(
+            backup_id=f"{prefix}-{folder_time}",
+            backend="filesystem",
+            include_classes=["AdaSentence", "SbertSentence", "Publication", "Author", "Organisation"],
+            wait_for_completion=True,
+        )
         if result['status'] == 'SUCCESS':
-            message = f"Successful backup to {result['path']}"
+            message = f"Successful backup of EFS weaviate database to {result['path']}"
             logger.info(message)
-            MailSender().send_email(text=message)
+            MailSender().send_email(type=MailSender.INFO, text=message)
         else:
-            logger.error(f"Backup failure with unknown status")
+            raise "Backup failure with unknown reason"
     except Exception as e:
-        logger.exception(f"Backup failure {e}")
+        logger.exception(f"Backup failure : {e}")
+        MailSender().send_email(type=MailSender.INFO, text=f"Backup failure : {e}\n{traceback.format_exc()}")
 
 
 if __name__ == '__main__':

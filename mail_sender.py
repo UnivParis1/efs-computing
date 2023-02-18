@@ -10,6 +10,8 @@ from dotenv import dotenv_values
 
 
 class MailSender:
+    ERROR = 0
+    INFO = 1
 
     def __init__(self):
         self.email_params = dict(dotenv_values(".env.email"))
@@ -33,9 +35,9 @@ class MailSender:
             )
         return server
 
-    def send_email(self, text=None, html=None):
+    def send_email(self, type=INFO, text=None, html=None):
         """Send email
-    
+
         Arguments:
             text {str} -- plain text message
             html {str} -- html message
@@ -46,9 +48,9 @@ class MailSender:
         mail_to_string = ", ".join(mail_to)
         msg = MIMEMultipart("alternative")
         subject = self.email_params.get(
-            "subject", "automatic admin email"
+            "error_subject" if type == self.ERROR else "default_subject", "Automatic report email"
         )
-        msg["Subject"] = f"{subject} - {datetime.now().date().isoformat()}"
+        msg["Subject"] = f"{subject} - {datetime.now().date().isoformat() ({datetime.now().time().isoformat()})}"
         msg["From"] = mail_from
         msg["To"] = mail_to_string
 
