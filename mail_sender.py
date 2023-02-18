@@ -50,7 +50,7 @@ class MailSender:
         subject = self.email_params.get(
             "error_subject" if type == self.ERROR else "default_subject", "Automatic report email"
         )
-        msg["Subject"] = f"{subject} - {datetime.now().date().isoformat() ({datetime.now().time().isoformat()})}"
+        msg["Subject"] = f"{subject} - {datetime.now().date().isoformat()} ({datetime.now().time().isoformat()})"
         msg["From"] = mail_from
         msg["To"] = mail_to_string
 
