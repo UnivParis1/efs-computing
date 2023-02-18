@@ -20,3 +20,5 @@ log/*.log.*
 !.env.proxies.example
 .env.openai
 !.env.openai.example
+.env.email
+!.env.email.example
