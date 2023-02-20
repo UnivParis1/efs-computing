@@ -9,6 +9,7 @@ import pandas as pd
 
 from hal_api_client import HalApiClient
 from log_handler import LogHandler
+from mail_sender import MailSender
 
 COLUMNS = ['docid',
            'fr_title',
@@ -122,12 +123,15 @@ def parse_arguments():
 
 
 def main(args):
+    global logger
     logger = LogHandler('dump_hal_csv', 'log', 'dump_hal_csv.log', logging.DEBUG).create_rotating_log()
     days = args.days
     if days is None:
-        logger.info("Missing days parameters : fetch the whole HAL database")
+        message0 = "Missing days parameters : fetch the whole HAL database"
+        logger.info(message0)
     else:
-        logger.info(f"Fetch the last {days} days modified or added publications from HAL database")
+        message0 = f"Fetched the last {days} days modified or added publications from HAL database"
+        logger.info(message0)
     filter_documents = args.filter_documents
     if filter_documents is False:
         logger.info("All type of documents requested")
@@ -181,9 +185,16 @@ def main(args):
             publications = pd.concat([publications, pd.DataFrame(new_lines, columns=COLUMNS).astype(
                 dtype={"created": bool, "updated": bool})])
     publications.to_csv(file_path, index=False)
-    logger.info(f"Publications file created or updated at {file_path}")
-    logger.info(f"Unchanged : {unchanged}, Created : {created}, Updated: {updated}")
+    message1 = f"Publications file created or updated at {file_path}"
+    message2 = f"Unchanged : {unchanged}, Created : {created}, Updated: {updated}"
+    logger.info(message1)
+    logger.info(message2)
+    MailSender().send_email(type=MailSender.INFO, text=message0 + "\n" + message1 + "\n" + message2)
 
 
 if __name__ == '__main__':
-    main(parse_arguments())
+    try:
+        main(parse_arguments())
+    except Exception as e:
+        logger.exception(f"Hal dump failure : {e}")
+        MailSender().send_email(type=MailSender.ERROR, text=f"Hal dump failure : {e}\n{traceback.format_exc()}")

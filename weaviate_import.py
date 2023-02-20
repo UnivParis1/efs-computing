@@ -12,6 +12,7 @@ import weaviate
 
 from hal_utils import choose_author_identifier
 from log_handler import LogHandler
+from mail_sender import MailSender
 
 weaviate_params = dict(dotenv_values(".env.weaviate"))
 
@@ -442,6 +443,7 @@ def main(args):
     global logger
     logger = LogHandler("weaviate_import", 'log', 'weaviate_import.log', logging.INFO).create_rotating_log()
     client = get_client()
+    files_counter = 0
     if args.reset == True:
         logger.info("Resetting weaviate database")
         reset(client)
@@ -451,25 +453,36 @@ def main(args):
     processed_files = set()
     load_data_from_file_system(client, 'inst', load_org_data, input_dir, processed_files, args.reset)
     move_files(processed_files)
+    files_counter += len(processed_files)
     processed_files = set()
     load_data_from_file_system(client, 'lab', load_org_data, input_dir, processed_files, args.reset)
     move_files(processed_files)
+    files_counter += len(processed_files)
     processed_files = set()
     load_data_from_file_system(client, 'auth', load_authors_data, input_dir, processed_files, args.reset)
     if not args.reset:
         load_data_from_file_system(client, 'auth', update_authors_relations, input_dir, processed_files)
     move_files(processed_files)
+    files_counter += len(processed_files)
     processed_files = set()
     load_data_from_file_system(client, 'pub', load_publication_data, input_dir, processed_files, args.reset)
     if not args.reset:
         load_data_from_file_system(client, 'pub', update_publication_relations, input_dir, processed_files)
     move_files(processed_files)
+    files_counter += len(processed_files)
     processed_files = set()
     load_data_from_file_system(client, 'sent', load_sent_data, input_dir, processed_files, args.reset)
     if not args.reset:
         load_data_from_file_system(client, 'sent', update_sentence_relations, input_dir, processed_files)
     move_files(processed_files)
+    files_counter += len(processed_files)
+    MailSender().send_email(type=MailSender.INFO,
+                            text=f"Successfully loaded {files_counter} items in Weaviate database")
 
 
 if __name__ == '__main__':
-    main(parse_arguments())
+    try:
+        main(parse_arguments())
+    except Exception as e:
+        logger.exception(f"Weaviate load failure : {e}")
+        MailSender().send_email(type=MailSender.ERROR, text=f"Weaviate load failure : {e}\n{traceback.format_exc()}")
