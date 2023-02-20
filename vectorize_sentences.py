@@ -15,6 +15,7 @@ from sentence_transformers import SentenceTransformer
 
 from hal_utils import choose_author_identifier
 from log_handler import LogHandler
+from mail_sender import MailSender
 from uuid_provider import UUIDProvider
 
 MAX_OPENAI_API_ATTEMPTS = 30
@@ -30,6 +31,9 @@ DEFAULT_INPUT_FILE_NAME = "dump.csv"
 EMBEDDING_MODEL = 'text-embedding-ada-002'
 EMBEDDING_CTX_LENGTH = 8191
 EMBEDDING_ENCODING = 'cl100k_base'
+
+NUMBER_OF_DOCUMENTS_ALERT_LEVEL = 1000
+NUMBER_OF_SENTENCES_ALERT_LEVEL = 70
 
 MIN_SENTENCE_LENGTH = 20
 
@@ -83,6 +87,9 @@ def parse_arguments():
                         help='CSV input file name', required=False, default=DEFAULT_INPUT_FILE_NAME)
     parser.add_argument('--openai', dest='openai',
                         help='Enable openai embeddings', required=False, default=False, type=bool)
+    parser.add_argument('--force', dest='force',
+                        help='Force vectorization, overcome limit of number of documents', required=False,
+                        default=False, type=bool)
     return parser.parse_args()
 
 
@@ -96,6 +103,7 @@ def main(args):
     global logger
     logger = LogHandler("vectorize_sentences", 'log', 'vectorize_sentences.log',
                         logging.INFO).create_rotating_log()
+    force = args.force
     openai = args.openai
     if openai:
         enable_openai()
@@ -105,9 +113,12 @@ def main(args):
     file_path = f"{directory}/{file}"
     csv = pd.read_csv(file_path)
     copy = csv.copy()
-    logger.info(f"Total number of documents : {len(csv)}")
+    logger.info(f"Total number of documents : {num_docs}")
     copy = copy.query('updated!=0 | created!=0')
-    logger.info(f"Number of documents to process : {len(copy)}")
+    num_docs = len(copy)
+    logger.info(f"Number of documents to process : {num_docs}")
+    if num_docs > NUMBER_OF_DOCUMENTS_ALERT_LEVEL and not force:
+        raise f"abnormal number of documents : {num_docs}, stopping vectorization, check and launch manually"
     metadata = copy[
         ['docid', 'fr_title', 'en_title', 'fr_subtitle', 'en_subtitle', 'fr_abstract', 'en_abstract',
          'fr_keyword',
@@ -127,9 +138,10 @@ def main(args):
     metadata.loc[:, "text_fr_concat"] = metadata.loc[:, "texts_fr"].map(lambda strs: ' '.join(strs))
     metadata.loc[:, "text_en_concat"] = metadata.loc[:, "texts_en"].map(lambda strs: ' '.join(strs))
     total = len(metadata)
-    counter = 0
+    docs_counter = 0
+    sent_counter = 0
     for index, row in metadata.iterrows():
-        counter += 1
+        docs_counter += 1
         affiliations = ast.literal_eval(row['affiliations'])
         lab_data_struct = {}
         inst_data_struct = {}
@@ -184,8 +196,13 @@ def main(args):
         text_fr_concat = row["text_fr_concat"].strip()
         text_en_concat = row["text_en_concat"].strip()
         texts = list(filter(lambda text: len(text) > MIN_SENTENCE_LENGTH, texts))
-        if len(texts) == 0:
+        num_sents = len(texts)
+        if num_sents == 0:
             continue
+        sent_counter += num_sents
+        if num_sents > NUMBER_OF_SENTENCES_ALERT_LEVEL and not force:
+            raise f"abnormal number of sentences : {num_sents} for docid {row['docid']}," \
+                  f"stopping the vectorisation, check and launch manually"
         sbert_embeddings = sbert_model.encode(texts)
         ada_embeddings = [get_openai_embedding(text) for text in texts] if openai else []
         fr_text_embedding = None
@@ -222,12 +239,14 @@ def main(args):
         dump_to_json('pub', pub_data_struct.values(), output_dir)
         csv.loc[csv['docid'] == row['docid'], 'created'] = False
         csv.loc[csv['docid'] == row['docid'], 'updated'] = False
-        if counter % PERSIST_RATE == 0:
-            logger.info(f"Saving csv at index {index} - counter {counter}/{total}")
+        if docs_counter % PERSIST_RATE == 0:
+            logger.info(f"Saving csv at index {index} - counter {docs_counter}/{total}")
             csv.to_csv(file_path, index=False)
     csv.loc[:, 'created'] = False
     csv.loc[:, 'updated'] = False
     csv.to_csv(file_path, index=False)
+    MailSender().send_email(type=MailSender.INFO,
+                            text=f"Successful vectorization of {num_docs} documents ({sent_counter} sentences), CSV updated at {file_path} ")
 
 
 def dump_to_json(prefix, data, output_dir, suffix=None):
@@ -240,4 +259,8 @@ def dump_to_json(prefix, data, output_dir, suffix=None):
 
 
 if __name__ == '__main__':
-    main(parse_arguments())
+    try:
+        main(parse_arguments())
+    except Exception as e:
+        logger.exception(f"Vectorization failure : {e}")
+        MailSender().send_email(type=MailSender.ERROR, text=f"Vectorization failure : {e}\n{traceback.format_exc()}")

@@ -53,7 +53,7 @@ def main(args):
             backup(prefix)
         except Exception as e:
             logger.exception(f"Backup failure : {e}")
-            MailSender().send_email(type=MailSender.INFO, text=f"Backup failure : {e}\n{traceback.format_exc()}")
+            MailSender().send_email(type=MailSender.ERROR, text=f"Backup failure : {e}\n{traceback.format_exc()}")
     else:
         print("No operation requested")
 
