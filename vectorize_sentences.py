@@ -114,7 +114,7 @@ def main(args):
     file_path = f"{directory}/{file}"
     csv = pd.read_csv(file_path)
     copy = csv.copy()
-    logger.info(f"Total number of documents : {num_docs}")
+    logger.info(f"Total number of documents : {len(csv)}")
     copy = copy.query('updated!=0 | created!=0')
     num_docs = len(copy)
     logger.info(f"Number of documents to process : {num_docs}")
