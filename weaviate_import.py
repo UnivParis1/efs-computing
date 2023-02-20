@@ -3,6 +3,7 @@ import glob
 import json
 import logging
 import os
+import traceback
 import uuid
 from pathlib import Path
 from dotenv import dotenv_values

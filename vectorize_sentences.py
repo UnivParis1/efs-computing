@@ -5,6 +5,7 @@ import logging
 import os
 import random
 import time
+import traceback
 from pathlib import Path
 
 import nltk
@@ -113,7 +114,7 @@ def main(args):
     file_path = f"{directory}/{file}"
     csv = pd.read_csv(file_path)
     copy = csv.copy()
-    logger.info(f"Total number of documents : {num_docs}")
+    logger.info(f"Total number of documents : {len(csv)}")
     copy = copy.query('updated!=0 | created!=0')
     num_docs = len(copy)
     logger.info(f"Number of documents to process : {num_docs}")
@@ -230,7 +231,7 @@ def main(args):
             pub_data_struct[row['docid']]['title_sbert_en_embed'] = list(map(str, list(en_title_embeddings)))
         if fr_title_embeddings is not None:
             pub_data_struct[row['docid']]['title_sbert_fr_embed'] = list(map(str, list(fr_title_embeddings)))
-        logger.info(f"Count : {index}/{total}")
+        logger.info(f"Index : {index} Count : {docs_counter}/{total}")
         logger.debug(f"Word count : {sum([len(i.split(' ')) for i in texts])}")
         dump_to_json('sent', sent_data_structs, output_dir, suffix='model')
         dump_to_json('lab', lab_data_struct.values(), output_dir)
