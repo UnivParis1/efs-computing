@@ -231,7 +231,7 @@ def main(args):
             pub_data_struct[row['docid']]['title_sbert_en_embed'] = list(map(str, list(en_title_embeddings)))
         if fr_title_embeddings is not None:
             pub_data_struct[row['docid']]['title_sbert_fr_embed'] = list(map(str, list(fr_title_embeddings)))
-        logger.info(f"Count : {index}/{total}")
+        logger.info(f"Index : {index} Count : {docs_counter}/{total}")
         logger.debug(f"Word count : {sum([len(i.split(' ')) for i in texts])}")
         dump_to_json('sent', sent_data_structs, output_dir, suffix='model')
         dump_to_json('lab', lab_data_struct.values(), output_dir)
