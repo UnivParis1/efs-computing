@@ -71,7 +71,7 @@ def backup(prefix):
         logger.info(message)
         MailSender().send_email(type=MailSender.INFO, text=message)
     else:
-        raise "Backup failure with unknown reason"
+        raise RuntimeError("Backup failure with unknown reason")
 
 
 def restore(backup_id):
@@ -87,7 +87,7 @@ def restore(backup_id):
         message = f"Successful restoration of EFS weaviate database from id {backup_id}"
         logger.info(message)
     else:
-        raise f"Restoration from id {backup_id} failed with unknown reason"
+        raise RuntimeError(f"Restoration from id {backup_id} failed with unknown reason")
 
 
 if __name__ == '__main__':

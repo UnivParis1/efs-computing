@@ -119,7 +119,8 @@ def main(args):
     num_docs = len(copy)
     logger.info(f"Number of documents to process : {num_docs}")
     if num_docs > NUMBER_OF_DOCUMENTS_ALERT_LEVEL and not force:
-        raise f"abnormal number of documents : {num_docs}, stopping vectorization, check and launch manually"
+        raise RuntimeError(
+            f"abnormal number of documents : {num_docs}, stopping vectorization, check and launch manually")
     metadata = copy[
         ['docid', 'fr_title', 'en_title', 'fr_subtitle', 'en_subtitle', 'fr_abstract', 'en_abstract',
          'fr_keyword',
@@ -202,8 +203,8 @@ def main(args):
             continue
         sent_counter += num_sents
         if num_sents > NUMBER_OF_SENTENCES_ALERT_LEVEL and not force:
-            raise f"abnormal number of sentences : {num_sents} for docid {row['docid']}," \
-                  f"stopping the vectorisation, check and launch manually"
+            raise RuntimeError(
+                f"abnormal number of sentences : {num_sents} for docid {row['docid']}, stopping the vectorisation, check and launch manually")
         sbert_embeddings = sbert_model.encode(texts)
         ada_embeddings = [get_openai_embedding(text) for text in texts] if openai else []
         fr_text_embedding = None
