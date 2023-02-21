@@ -93,7 +93,7 @@ def main(args):
 
     message = f"Removed {len(to_remove)} from database {'(Simulation)' if dry_run else ''}."
     logger.info(message)
-    MailSender().send_email(type=MailSender.INFO, text=message + "\nDetails : \n".join(
+    MailSender().send_email(type=MailSender.INFO, text=message + "\nDetails : ", html="<br/>".join(
         removal_list))
 
 
