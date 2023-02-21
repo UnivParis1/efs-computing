@@ -151,7 +151,7 @@ def main(args):
     hal_api_client = HalApiClient(days=days, rows=rows, logger=logger, filtered=filter_documents)
     created, updated, unchanged = 0, 0, 0
     while True:
-        cursor, docs = hal_api_client.fetch_publications()
+        docs = hal_api_client.fetch_last_publications()
         new_lines = []
         for doc in docs:
             docid = int(doc.get('docid'))

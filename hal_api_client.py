@@ -21,10 +21,16 @@ class HalApiClient:
                           "authIdForm_i,authFullNameFormIDPersonIDIDHal_fs,docType_s," \
                           "publicationDate_tdate,citationFull_s,citationRef_s," \
                           "authIdHasStructure_fs, labStructId_i"
+    ALL_IDS_QUERY_TEMPLATE = "q*:*" \
+                             "&sort=docid asc&rows=%%ROWS%%" \
+                             "&fq=instStructAcronym_sci:UP1" \
+                             "&cursorMark=%%CURSOR%%" \
+                             "&wt=json" \
+                             "&fl=docid"
     DATE_INTERVAL_TEMPLATE = "AND (submittedDate_tdate:[NOW-%%DAYS%%DAYS/DAY TO NOW/HOUR] " \
                              "OR modifiedDate_tdate:[NOW-%%DAYS%%DAYS/DAY TO NOW/HOUR])"
 
-    def __init__(self, days: int, rows: int, logger: logging.Logger, filtered: bool) -> None:
+    def __init__(self, rows: int, logger: logging.Logger, days: int = None, filtered: bool = False) -> None:
         self.rows = rows
         self.logger = logger
         self.filter = self.FILTERED_QUERY if filtered else self.NOT_FILTERED_QUERY
@@ -33,17 +39,7 @@ class HalApiClient:
         self.cursor = "*"
         self.total = None
 
-    def fetch_publications(self) -> list:
-        """
-
-
-        """
-        json_request_string = HalApiClient.HAL_API_URL + HalApiClient.LIST_QUERY_TEMPLATE \
-            .replace('%%CURSOR%%',
-                     str(self.cursor)) \
-            .replace('%%ROWS%%', str(self.rows)) \
-            .replace('%%FILTER%%', str(self.filter)) \
-            .replace('%%DATE_INTERVAL%%', self.date_interval)
+    def _fetch_publications(self, json_request_string: str) -> list:
         self.logger.debug(f"Request to HAL : {json_request_string}")
         response = requests.get(json_request_string, timeout=360)
         json_response = response.json()
@@ -53,4 +49,20 @@ class HalApiClient:
             self.total = int(json_response['response']['numFound'])
             self.logger.info(f"{self.total} entries")
         self.cursor = json_response['nextCursorMark']
-        return self.cursor, json_response['response']['docs']
+        return json_response['response']['docs']
+
+    def fetch_last_publications(self) -> list:
+        json_request_string = HalApiClient.HAL_API_URL + HalApiClient.LIST_QUERY_TEMPLATE \
+            .replace('%%CURSOR%%',
+                     str(self.cursor)) \
+            .replace('%%ROWS%%', str(self.rows)) \
+            .replace('%%FILTER%%', str(self.filter)) \
+            .replace('%%DATE_INTERVAL%%', self.date_interval)
+        return self._fetch_publications(json_request_string)
+
+    def fetch_all_publication_ids(self) -> list:
+        json_request_string = HalApiClient.HAL_API_URL + HalApiClient.ALL_IDS_QUERY_TEMPLATE \
+            .replace('%%CURSOR%%',
+                     str(self.cursor)) \
+            .replace('%%ROWS%%', str(self.rows))
+        return self._fetch_publications(json_request_string)
