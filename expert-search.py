@@ -1,6 +1,6 @@
 import argparse
 
-from tasks import find_experts, initialization
+from local_model_tasks import initialization, find_experts
 
 
 def parse_arguments():
@@ -18,5 +18,5 @@ def parse_arguments():
 if __name__ == '__main__':
     args = parse_arguments()
     initialization()
-    result = find_experts(sentence=args.sentence, model=args.model, precision=float(args.precision))
+    result = find_experts(sentence=args.sentence, precision=float(args.precision))
     print(result)
