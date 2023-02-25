@@ -3,7 +3,7 @@ class ScoringStrategy:
     MAX_PRECISION = 0.7
 
     @staticmethod
-    def apply_limits(precision):
+    def apply_limits(precision: float) -> float:
         return min(ScoringStrategy.MAX_PRECISION, max(ScoringStrategy.MIN_PRECISION, float(precision)))
 
     @staticmethod
