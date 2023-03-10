@@ -283,9 +283,10 @@ def load_authors_data(authors, client, reset_db=False):
         author_uuid = uuid.UUID(author["uuid"])
         author_properties = {
             "name": author["name"],
-            "own_inst": author["own_inst"] is True,
             "identifier": str(identifier),
         }
+        if author["own_inst"] is True:
+            author_properties |= {"own_inst": True}
         clean_properties(author_properties)
         client.batch.add_data_object(author_properties, "Author", author_uuid)
         if reset_db:
