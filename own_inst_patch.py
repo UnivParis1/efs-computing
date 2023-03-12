@@ -2,6 +2,7 @@ import argparse
 import ast
 import logging
 import os
+import traceback
 
 import pandas as pd
 import weaviate
@@ -9,6 +10,7 @@ from dotenv import dotenv_values
 
 from hal_utils import choose_author_identifier
 from log_handler import LogHandler
+from mail_sender import MailSender
 from uuid_provider import UUIDProvider
 
 OWN_INST_ORG_ID = 7550
@@ -78,6 +80,8 @@ def main(args):
             authors_data_struct[hal_id]['own_inst'] |= (org_id == OWN_INST_ORG_ID)
 
         logger.info(f"Index : {index} Count : {docs_counter}/{total}")
+    own_inst_counter = 0
+    missing_counter = 0
     for auth in authors_data_struct.values():
         author_uuid = auth['uuid']
         author_name = auth['name']
@@ -85,6 +89,7 @@ def main(args):
         logger.info(f"{author_name} ({author_uuid}) : {author_own_inst}")
         if author_own_inst is True:
             logger.info(f"Updating own_inst for {author_name}")
+            own_inst_counter += 1
         else:
             continue
         if not dry:
@@ -98,7 +103,15 @@ def main(args):
                 )
             else:
                 logger.error(f"Author with UUID {author_uuid} does not exist.")
+                missing_counter += 1
+    MailSender().send_email(type=MailSender.INFO,
+                            text=f"Successfully tagged {own_inst_counter} authors as belonging to the university ({missing_counter} not found)")
 
 
 if __name__ == '__main__':
-    main(parse_arguments())
+    try:
+        main(parse_arguments())
+    except Exception as e:
+        logger.exception(f"Tagging of authors belonging to university failure : {e}")
+        MailSender().send_email(type=MailSender.ERROR,
+                                text=f"Tagging of authors belonging to university failure : {e}\n{traceback.format_exc()}")
