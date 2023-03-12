@@ -176,11 +176,14 @@ def main(args):
                                             'has_authors': list(
                                                 map(lambda auth: auth['uuid'], authors_data_struct.values()))
                                         } | {'has_lab': [], 'has_inst': []}
-        buffer = []
+        buffer = {}
         for affiliation in affiliations:
             is_lab = int(affiliation['lab']) == 1
             prop_name = 'has_lab' if is_lab else 'has_inst'
             org_id = affiliation['org_id']
+            hal_id = affiliation['hal_id']
+            if hal_id not in buffer:
+                buffer[hal_id] = []
             org_uuid = str(UUIDProvider(f"hal-org-{org_id}").value())
             org = {'id': org_id, 'name': affiliation['org_name'], 'uuid': org_uuid,
                    'lab': str(1 if is_lab else 0)}
@@ -188,12 +191,12 @@ def main(args):
                 lab_data_struct[org_id] = org
             else:
                 inst_data_struct[org_id] = org
-            if org_id in buffer:
+            if org_id in buffer[hal_id]:
                 continue
-            buffer.append(org_id)
+            buffer[hal_id].append(org_id)
             pub_data_struct[row['docid']][prop_name].append(org_uuid)
-            authors_data_struct[affiliation['hal_id']][prop_name].append(org_uuid)
-            authors_data_struct[affiliation['hal_id']]['own_inst'] |= (org_id == OWN_INST_ORG_ID)
+            authors_data_struct[hal_id][prop_name].append(org_uuid)
+            authors_data_struct[hal_id]['own_inst'] |= (org_id == OWN_INST_ORG_ID)
         texts = row["texts"]
         text_fr_concat = row["text_fr_concat"].strip()
         text_en_concat = row["text_en_concat"].strip()

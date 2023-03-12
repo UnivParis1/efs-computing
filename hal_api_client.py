@@ -4,7 +4,7 @@ import requests
 
 
 class HalApiClient:
-    HAL_API_URL = "https://api.archives-ouvertes.fr/search/halshs/?"
+    HAL_API_URL = "https://api.archives-ouvertes.fr/search/paris1/?"
 
     FACET_SEP = '_FacetSep_'
     JOIN_SEP = '_JoinSep_'
