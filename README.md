@@ -78,11 +78,11 @@ Voici à titre indicatif la configuration du _user cron_ à Paris 1 Panthéon-So
 étant significatives, elles sont lancées à des horaires décalés.
 
 ```
-0 5 * * * cd /webhome/efs/efs-computing && . venv/bin/activate && python3 dump_hal_csv.py --days 1 > /tmp/out1 2>&1
-15 5 * * * cd /webhome/efs/efs-computing && . venv/bin/activate && python3 vectorize_sentences.py --openai 1 > /tmp/out1 2>&1
-00 6 * * * cd /webhome/efs/efs-computing && . venv/bin/activate && python3 weaviate_import.py > /tmp/out1 2>&1
-30 6 * * * cd /webhome/efs/efs-computing && . venv/bin/activate && python3 clean_database.py > /tmp/out1 2>&1
-45 6 * * * cd /webhome/efs/efs-computing && . venv/bin/activate && python3 own_inst_patch.py > /tmp/out1 2>&1
+0 5 * * * cd /app/directory/efs/efs-computing && . venv/bin/activate && python3 dump_hal_csv.py --days 1 > /tmp/out1 2>&1
+15 5 * * * cd /app/directory/efs/efs-computing && . venv/bin/activate && python3 vectorize_sentences.py --openai 1 > /tmp/out1 2>&1
+00 6 * * * cd /app/directory/efs/efs-computing && . venv/bin/activate && python3 weaviate_import.py > /tmp/out1 2>&1
+30 6 * * * cd /app/directory/efs/efs-computing && . venv/bin/activate && python3 clean_database.py > /tmp/out1 2>&1
+45 6 * * * cd /app/directory/efs/efs-computing && . venv/bin/activate && python3 own_inst_patch.py > /tmp/out1 2>&1
 ```
 
 ##### Calcul des vecteurs sémantique à la volée
@@ -103,8 +103,8 @@ appel à l'API OpenAI.
 CELERY_APP="local_model_tasks"
 CELERYD_NODES="worker"
 CELERYD_OPTS="--concurrency=1 -Q qcpu"
-CELERY_BIN="/webhome/efs/efs-computing/venv/bin/celery"
-CELERYD_PID_FILE="/webhome/efs/run/celery-cpu/%n.pid"
+CELERY_BIN="/app/directory/efs/efs-computing/venv/bin/celery"
+CELERYD_PID_FILE="/app/directory/efs/run/celery-cpu/%n.pid"
 CELERYD_LOG_FILE="/var/log/celery/celery-cpu-%n%I.log"
 CELERYD_LOG_LEVEL="INFO"
 
@@ -118,7 +118,7 @@ Type=forking
 User=efs
 Group=efs
 EnvironmentFile=/etc/conf.d/celery-cpu
-WorkingDirectory=/webhome/efs/efs-computing
+WorkingDirectory=/app/directory/efs/efs-computing
 ExecStart=/bin/sh -c '${CELERY_BIN} -A $CELERY_APP multi start $CELERYD_NODES \
     --pidfile=${CELERYD_PID_FILE} --logfile=${CELERYD_LOG_FILE} \
     --loglevel="${CELERYD_LOG_LEVEL}" $CELERYD_OPTS'
@@ -137,8 +137,8 @@ WantedBy=multi-user.target
 CELERY_APP="remote_model_tasks"
 CELERYD_NODES="worker"
 CELERYD_OPTS="--concurrency=64 -Q qio"
-CELERY_BIN="/webhome/efs/efs-computing/venv/bin/celery"
-CELERYD_PID_FILE="/webhome/efs/run/celery-io/%n.pid"
+CELERY_BIN="/app/directory/efs/efs-computing/venv/bin/celery"
+CELERYD_PID_FILE="/app/directory/efs/run/celery-io/%n.pid"
 CELERYD_LOG_FILE="/var/log/celery/celery-io-%n%I.log"
 CELERYD_LOG_LEVEL="INFO"
 
@@ -152,7 +152,7 @@ Type=forking
 User=efs
 Group=efs
 EnvironmentFile=/etc/conf.d/celery-io
-WorkingDirectory=/webhome/efs/efs-computing
+WorkingDirectory=/app/directory/efs/efs-computing
 ExecStart=/bin/sh -c '${CELERY_BIN} -A $CELERY_APP multi start $CELERYD_NODES \
     --pidfile=${CELERYD_PID_FILE} --logfile=${CELERYD_LOG_FILE} \
     --loglevel="${CELERYD_LOG_LEVEL}" $CELERYD_OPTS'
