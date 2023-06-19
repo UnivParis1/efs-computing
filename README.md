@@ -2,9 +2,13 @@
 
 **Université Paris 1 Panthéon-Sorbonne**
 
-L'outil de recherche d'expertise (EFS) est un POC (_proof of concept_) de moteur de recherche d'expertises sémantique en
-établissement ESR développé par l'Université Paris 1 Panthéon-Sorbonne. Il permet d'identifier des experts à partir d'
+L'outil de recherche d'expertise (EFS) est un POC (_proof of concept_) de moteur de recherche d'expertises en
+établissement ESR assisté par l'intelligence artificielle développé par l'Université Paris 1 Panthéon-Sorbonne.
+Il permet d'identifier des experts à partir d'
 une requête utilisateur en langage naturel sur la base de leurs publications.
+L'EFS est alimenté quotidiennement par les données de la plateforme HAL
+institutionnelle. Il utilise les modèles de langage S-BERT (paraphrase-multilingual-mpnet-base-v2) et GPT-3 (ADA) de
+l'API OpenAI pour calculer les similarités entre la requête utilisateur et les métadonnées des publications.
 L'EFS est alimenté quotidiennement par les données de la plateforme HAL
 institutionnelle. Il utilise les modèles de langage S-BERT (paraphrase-multilingual-mpnet-base-v2) et GPT-3 (ADA) de
 l'API OpenAI pour calculer les similarités entre la requête utilisateur et les métadonnées des publications.
@@ -57,7 +61,7 @@ Le présent repository efs-computing héberge le module de calcul de l'EFS. Il d
 vectorielle Weaviate (à Paris 1
 l'image docker utilisée est semitechnologies/weaviate:1.17.2).
 
-* L'environnement est géré sous dotenv (completer tous les fichiers .env.example en retirant l'extension .example)
+* L'environnement est géré sous dotenv (completer tous les fichiers `.env.example` en retirant l'extension `.example`)
 * Les vectorisations sémantiques des métadonnées de publications HAL sont effectuées par lot et nécessitent la
   configuration du cron.
 * Les vectorisations des requêtes utilisateurs sont effectuées à la volée par des tâches celery qui doivent être lancées
