@@ -120,7 +120,7 @@ font appel à l'API GPT et sont I/O-bound.
 * Les local_model_tasks chargent et exécutent S-Bert, ce qui consomme beaucoup de ressources de calcul même s'il ne s'
   agit que de _forward pass_. Nous recommandons de laisser la concurrence à 1 (par VM) pour
   cette tâche, ce qui n'empêchera par Pytorch de distribuer le calcul entre les cœurs. Nous avons vérifié lors des tests
-  de charge que fait de passer la concurrence
+  de charge que le fait de passer la concurrence
   à 2 ou plus ne faisait que créer une concurrence entre workers Celery pour l'accès aux CPU et dégradait les performances.
   De toute façon les local_model_tasks consomment une quantité significative de RAM ce qui ne permettrait pas d'opter
   pour un niveau élevé de parallélisme.
