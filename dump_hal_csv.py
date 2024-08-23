@@ -1,14 +1,15 @@
 #!/usr/bin/env python
 import argparse
-import hashlib
 import logging
 import os
 import traceback
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from hal_api_client import HalApiClient
+from hash_hal_csv import create_update_hash
 from log_handler import LogHandler
 from mail_sender import MailSender
 
@@ -58,7 +59,7 @@ def load_or_create_publications_df(file_path: str) -> pd.DataFrame:
     return publications.astype(dtype={"docid": "int32", "created": bool, "updated": bool})
 
 
-def extract_fields(doc: dict) -> list:
+def extract_fields(doc: dict) -> dict:
     """Extracts useful fields from HAL json response and formats for csv
 
 
@@ -71,7 +72,6 @@ def extract_fields(doc: dict) -> list:
     -------
     values: list of formatted values
     """
-    form_ids = doc['authIdForm_i']
     identifiers_mappings = [i.split(HalApiClient.FACET_SEP) for i in doc['authFullNameFormIDPersonIDIDHal_fs']]
     identifiers_dicts = [
         {'name': i[0], 'hal_id': i[1], 'form_id': i[1].split('-')[0], 'idhal_i': i[1].split('-')[1], 'idhal_s': i[2]}
@@ -88,23 +88,30 @@ def extract_fields(doc: dict) -> list:
         lab = org_id in doc.get('labStructId_i', [])
         affiliations_dicts.append(
             {'hal_id': identifiers[0]['hal_id'], 'org_id': org_id, 'org_name': org_name, 'lab': '1' if lab else '0'})
-    values = [int(doc.get('docid')),
-              doc.get('fr_title_s', [''])[0],
-              doc.get('en_title_s', [''])[0],
-              doc.get('fr_subTitle_s', [''])[0],
-              doc.get('en_subTitle_s', [''])[0],
-              doc.get('fr_abstract_s', [''])[0],
-              doc.get('en_abstract_s', [''])[0],
-              "§§§".join(doc.get('fr_keyword_s', [''])),
-              "§§§".join(doc.get('en_keyword_s', [''])),
-              str(identifiers_dicts),
-              str(affiliations_dicts),
-              doc.get('docType_s', ''),
-              doc.get('publicationDate_tdate', ''),
-              doc.get('citationRef_s', ''),
-              doc.get('citationFull_s', '')
-              ]
-    return values
+
+    new_values = {
+        'docid': int(doc.get('docid')),
+        'fr_title': doc.get('fr_title_s', [''])[0],
+        'en_title': doc.get('en_title_s', [''])[0],
+        'fr_subtitle': doc.get('fr_subTitle_s', [''])[0],
+        'en_subtitle': doc.get('en_subTitle_s', [''])[0],
+        'fr_abstract': doc.get('fr_abstract_s', [''])[0],
+        'en_abstract': doc.get('en_abstract_s', [''])[0],
+        'fr_keyword': "§§§".join(doc.get('fr_keyword_s', [''])),
+        'en_keyword': "§§§".join(doc.get('en_keyword_s', [''])),
+        'authors': str(identifiers_dicts),
+        'affiliations': str(affiliations_dicts),
+        'doc_type': doc.get('docType_s', ''),
+        'publication_date': doc.get('publicationDate_tdate', ''),
+        'citation_ref': doc.get('citationRef_s', ''),
+        'citation_full': doc.get('citationFull_s', ''),
+        'hash': '',
+        'created': '',
+        'updated': ''
+    }
+    # Replace empty strings with np.nan values
+    new_values = {k: np.nan if v == '' else v for k, v in new_values.items()}
+    return new_values
 
 
 def parse_arguments():
@@ -163,19 +170,23 @@ def main(args):
                 existing_line = dict(selection.iloc[0])
                 existing_hash = existing_line['hash']
             new_values = extract_fields(doc)
-            new_values_hash = hashlib.sha256('-'.join(map(str, new_values)).encode("utf-8")).hexdigest()
-            new_values.append(str(new_values_hash))
+            new_values_hash = create_update_hash(new_values)
+            new_values['hash'] = new_values_hash
             if existing_hash is not None:
                 if new_values_hash != existing_hash:
-                    new_values.extend([False, True])
-                    publications[publications['docid'] == docid] = new_values
+                    new_values.update({'created':False, 'updated':True})
+
+                    # Update the publications DataFrame
+                    columns_to_update = list(new_values.keys())
+                    values_to_update = list(new_values.values())
+                    publications.loc[publications['docid'] == docid, columns_to_update] = values_to_update
                     logger.debug(f"{docid} updated")
                     updated += 1
                 else:
                     unchanged += 1
                     logger.debug(f"{docid} unchanged")
             else:
-                new_values.extend([True, False])
+                new_values.update({'created': True, 'updated': False})
                 new_lines.append(new_values)
                 created += 1
                 logger.debug(f"{docid} created")
