@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 from hal_api_client import HalApiClient
-from hash_hal_csv import create_update_hash
+from data_hash import compute_hash
 from log_handler import LogHandler
 from mail_sender import MailSender
 
@@ -170,7 +170,7 @@ def main(args):
                 existing_line = dict(selection.iloc[0])
                 existing_hash = existing_line['hash']
             new_values = extract_fields(doc)
-            new_values_hash = create_update_hash(new_values)
+            new_values_hash = compute_hash(new_values)
             new_values['hash'] = new_values_hash
             if existing_hash is not None:
                 if new_values_hash != existing_hash:
